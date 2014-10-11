@@ -10,3 +10,5 @@ db_connector = mysql.connector.connect(
 	host     = app.config['DB_HOST'],
 	database = app.config['DB_NAME'],
 	charset  = app.config['DB_CHARSET'])
+
+import flaskr.api
