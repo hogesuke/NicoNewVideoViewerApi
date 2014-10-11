@@ -1,5 +1,6 @@
 from flaskr import app
 from flaskr import db_connector
+from flask import request
 import json
 
 @app.route('/')
@@ -19,8 +20,15 @@ def get_video(videos_id):
 
 @app.route('/videos/list/', methods=['GET'])
 def get_videos_list():
+	arg_page = request.args.get('page')
+	pieces_num = 20
+	page = 1
+
+	if arg_page is not None and arg_page.isdigit() and int(arg_page) > 0:
+		page = int(arg_page)
+
 	cursor = db_connector.cursor(dictionary = True)
-	cursor.execute("select * from videos limit 20")
+	cursor.execute('select id from videos order by serial_no desc limit %s, %s', [(page - 1) * pieces_num, pieces_num])
 
 	# TODO 取得できなかった場合の処理
 	row = cursor.fetchall()
