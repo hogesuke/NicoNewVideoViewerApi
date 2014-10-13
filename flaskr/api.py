@@ -1,22 +1,17 @@
+from flask import request, render_template
 from flaskr import app
 from flaskr import db_connector
-from flask import request
+import urllib.request
 import json
-
-@app.route('/')
-def hello_world():
-	return 'Hello World!'
+import xmltodict
 
 @app.route('/videos/<int:videos_id>', methods=['GET'])
 def get_video(videos_id):
-	cursor = db_connector.cursor(dictionary = True)
-	cursor.execute("select * from videos where id = %s", [videos_id])
+	res = urllib.request.urlopen('http://ext.nicovideo.jp/api/getthumbinfo/sm' + str(videos_id))
+	body = res.read()
+	video_xml = xmltodict.parse(body)
 
-	# TODO 取得できなかった場合の処理
-	row = cursor.fetchone()
-	cursor.close()
-
-	return json.dumps(row, default=default)
+	return json.dumps(video_xml, default=default)
 
 @app.route('/videos/list/', methods=['GET'])
 def get_videos_list():
