@@ -11,7 +11,10 @@ def get_video(videos_id):
 	body = res.read()
 	video_xml = xmltodict.parse(body)
 
-	return json.dumps(video_xml, default=default)
+	if 'nicovideo_thumb_response' in video_xml and 'thumb' in video_xml['nicovideo_thumb_response']:
+		return json.dumps(video_xml['nicovideo_thumb_response']['thumb'], default=default)
+	else:
+		return '{}' # TODO 何を返すのがいいのか再考
 
 @app.route('/videos/list/', methods=['GET'])
 def get_videos_list():
@@ -23,7 +26,7 @@ def get_videos_list():
 		page = int(arg_page)
 
 	cursor = db_connector.cursor(dictionary = True)
-	cursor.execute('select id from videos order by serial_no desc limit %s, %s', [(page - 1) * pieces_num, pieces_num])
+	cursor.execute('select serial_no, id from videos order by serial_no desc limit %s, %s', [(page - 1) * pieces_num, pieces_num])
 
 	# TODO 取得できなかった場合の処理
 	row = cursor.fetchall()
