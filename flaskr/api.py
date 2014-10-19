@@ -27,7 +27,7 @@ def get_videos_list():
 		page = int(arg_page)
 
 	cursor = db_connector.cursor(dictionary = True)
-	cursor.execute('select serial_no, id from videos order by serial_no desc limit %s, %s', [(page - 1) * pieces_num, pieces_num])
+	cursor.execute('select serial_no, id from videos order by serial_no desc limit {start}, {count}'.format(start=(page - 1) * pieces_num, count=pieces_num))
 
 	# TODO 取得できなかった場合の処理
 	row = cursor.fetchall()
@@ -37,27 +37,29 @@ def get_videos_list():
 
 @app.route('/my/contributors/', methods=['POST'])
 def post_my_contributor():
-	# contributor_id = request.form['id']
+	post_data = json.loads(request.data.decode(sys.stdin.encoding))
+	contributor_id = post_data['id']
 
-	# # TODO OAuthを実装した後に修正する(ログインユーザのuser_idを使用するように)
 	# contributor_idの存在チェック
-	# sel_cursor = db_connector.cursor(dictionary = True)
-	# sel_cursor.execute('select id from contributors where id = %s', [contributor_id])
-	# # TODO 取得できなかった場合に処理を中断する実装
-	# sel_cursor.fetchone()
-	# sel_cursor.close()
-	#
-	# ins_cursor = db_connector.cursor(buffered = True)
-	# ins_cursor.execute('insert into users_contributors (user_id, contributor_id) values (%s, %s)', [1, contributor_id])
-	#
-	# # TODO insertできなかった場合の処理
-	# db_connector.commit()
-	# ins_cursor.close()
-	# print(request)
+	if not is_exists_record('contributors', 'id = {0}'.format(contributor_id)):
+		response = jsonify(post_data)
+		response.status_code = 400
+		return response
 
-	post_data = request.data.decode(sys.stdin.encoding)
+	# TODO OAuthを実装した後に修正する(ログインユーザのuser_idを使用するように)
+	# 既に登録されていないかのチェック
+	if is_exists_record('users_contributors', 'user_id = {0} and contributor_id = {1}'.format(1, contributor_id)):
+		response = jsonify(post_data)
+		response.status_code = 401
+		return response
 
-	response = jsonify(json.loads(post_data))
+	ins_cursor = db_connector.cursor(buffered = True)
+	ins_cursor.execute('insert into users_contributors (user_id, contributor_id) values ({0}, {1})'.format(1, contributor_id))
+
+	db_connector.commit()
+	ins_cursor.close()
+
+	response = jsonify(post_data)
 	response.status_code = 201
 
 	return response
@@ -73,3 +75,23 @@ def default(obj):
 		obj.microsecond / 1000
 	)
 	return millis
+
+"""
+レコードの存在チェック
+
+@type target_tbl: str
+@param target_tbl: 存在チェク対象のテーブル
+@type target_tbl: str
+@param target_tbl: 取得条件
+@return 取得結果が1件以上の時=true, 0件以下の時=false
+"""
+def is_exists_record(target_tbl, where):
+	cnt_cursor = db_connector.cursor(dictionary = True)
+	cnt_cursor.execute('select count(*) as count from {table} where {where}'.format(table=target_tbl, where=where))
+
+	cnt_row = cnt_cursor.fetchone()
+	cnt_cursor.close()
+	if cnt_row['count'] > 0:
+		return True
+	else:
+		return False
