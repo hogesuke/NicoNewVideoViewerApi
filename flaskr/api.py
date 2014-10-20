@@ -1,4 +1,4 @@
-from flask import request, render_template, jsonify
+from flask import request, render_template, jsonify, make_response
 from flaskr import app
 from flaskr import db_connector
 import urllib.request
@@ -19,21 +19,39 @@ def get_video(videos_id):
 
 @app.route('/videos/list/', methods=['GET'])
 def get_videos_list():
-	arg_page = request.args.get('page')
 	pieces_num = 20
-	page = 1
-
-	if arg_page is not None and arg_page.isdigit() and int(arg_page) > 0:
-		page = int(arg_page)
+	page = get_page_no(request.args.get('page'))
 
 	cursor = db_connector.cursor(dictionary = True)
 	cursor.execute('select serial_no, id from videos order by serial_no desc limit {start}, {count}'.format(start=(page - 1) * pieces_num, count=pieces_num))
 
-	# TODO 取得できなかった場合の処理
-	row = cursor.fetchall()
+	rows = cursor.fetchall()
 	cursor.close()
 
-	return json.dumps(row, default=default)
+	return json.dumps(rows, default=default)
+
+@app.route('/my/contributors/', methods=['GET'])
+def get_my_contributor():
+	contributor_num = 20
+	page = get_page_no(request.args.get('page'))
+
+	# TODO OAuthを実装した後に修正する(ログインユーザのuser_idを使用するように)
+	cursor = db_connector.cursor(dictionary = True)
+	cursor.execute('''
+		select * from users_contributors uc
+		inner join contributors cb
+		on uc.contributor_id = cb.id
+		where uc.user_id = {user_id}
+		order by uc.created_datetime
+		desc limit {start}, {count}'''.format(user_id=1, start=(page - 1) * contributor_num, count=contributor_num))
+
+	rows = cursor.fetchall()
+	cursor.close()
+
+	response = make_response()
+	response.data = json.dumps(rows, default=default)
+	response.status_code = 200
+	return response
 
 @app.route('/my/contributors/', methods=['POST'])
 def post_my_contributor():
@@ -75,6 +93,22 @@ def default(obj):
 		obj.microsecond / 1000
 	)
 	return millis
+
+"""
+ページ番号を取得する
+
+@type arg_page: str
+@param arg_page: リクエストパラメータで指定されたpage
+@return リクエストパラメータのpageに有効な値が設定されている場合は、
+        リクエストパラメータのpageを数値に変換し返却。
+        有効でない値の場合は、1を返却。
+"""
+def get_page_no(param_page):
+	page = 1
+	if param_page is not None and param_page.isdigit() and int(param_page) > 0:
+		page = int(param_page)
+
+	return page
 
 """
 レコードの存在チェック
