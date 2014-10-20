@@ -11,11 +11,16 @@ def get_video(videos_id):
 	res = urllib.request.urlopen('http://ext.nicovideo.jp/api/getthumbinfo/sm' + str(videos_id))
 	body = res.read()
 	video_xml = xmltodict.parse(body)
+	response = make_response()
 
 	if 'nicovideo_thumb_response' in video_xml and 'thumb' in video_xml['nicovideo_thumb_response']:
-		return json.dumps(video_xml['nicovideo_thumb_response']['thumb'], default=default)
+		response.data = json.dumps(video_xml['nicovideo_thumb_response']['thumb'], default=default)
+		response.status_code = 200
+		return response
 	else:
-		return '{}' # TODO 何を返すのがいいのか再考
+		# TODO 取得できなかった場合の表示について再考
+		response.status_code = 204
+		return response
 
 @app.route('/videos/list/', methods=['GET'])
 def get_videos_list():
@@ -28,7 +33,10 @@ def get_videos_list():
 	rows = cursor.fetchall()
 	cursor.close()
 
-	return json.dumps(rows, default=default)
+	response = make_response()
+	response.data = json.dumps(rows, default=default)
+	response.status_code = 200
+	return response
 
 @app.route('/my/contributors/', methods=['GET'])
 def get_my_contributor():
