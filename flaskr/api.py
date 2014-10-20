@@ -38,6 +38,32 @@ def get_videos_list():
 	response.status_code = 200
 	return response
 
+@app.route('/my/videos/', methods=['GET'])
+def get_my_videos():
+	piece_num = 20
+	page = get_page_no(request.args.get('page'))
+
+	# TODO OAuthを実装した後に修正する(ログインユーザのuser_idを使用するように)
+	cursor = db_connector.cursor(dictionary = True)
+	cursor.execute('''
+		select vi.*
+		from videos vi
+		inner join videos_contributors vc
+		on vi.id = vc.video_id
+		inner join users_contributors uc
+		on vc.contributor_id = uc.contributor_id
+		where uc.user_id = {user_id}
+		order by vi.serial_no desc
+		limit {start}, {count}'''.format(user_id=1, start=(page - 1) * piece_num, count=piece_num))
+
+	rows = cursor.fetchall()
+	cursor.close()
+
+	response = make_response()
+	response.data = json.dumps(rows, default=default)
+	response.status_code = 200
+	return response
+
 @app.route('/my/contributors/', methods=['GET'])
 def get_my_contributor():
 	contributor_num = 20
@@ -46,12 +72,13 @@ def get_my_contributor():
 	# TODO OAuthを実装した後に修正する(ログインユーザのuser_idを使用するように)
 	cursor = db_connector.cursor(dictionary = True)
 	cursor.execute('''
-		select * from users_contributors uc
+		select cb.*
+		from users_contributors uc
 		inner join contributors cb
 		on uc.contributor_id = cb.id
 		where uc.user_id = {user_id}
-		order by uc.created_datetime
-		desc limit {start}, {count}'''.format(user_id=1, start=(page - 1) * contributor_num, count=contributor_num))
+		order by uc.created_datetime desc
+		limit {start}, {count}'''.format(user_id=1, start=(page - 1) * contributor_num, count=contributor_num))
 
 	rows = cursor.fetchall()
 	cursor.close()
