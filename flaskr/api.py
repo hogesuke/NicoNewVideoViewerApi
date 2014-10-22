@@ -103,16 +103,48 @@ def post_my_contributor():
 	# 既に登録されていないかのチェック
 	if is_exists_record('users_contributors', 'user_id = {0} and contributor_id = {1}'.format(1, contributor_id)):
 		response = jsonify(post_data)
-		response.status_code = 401
+		response.status_code = 400
 		return response
 
 	ins_cursor = db_connector.cursor(buffered = True)
 	ins_cursor.execute('insert into users_contributors (user_id, contributor_id) values ({0}, {1})'.format(1, contributor_id))
-
 	db_connector.commit()
 	ins_cursor.close()
 
 	response = jsonify(post_data)
+	response.status_code = 201
+
+	return response
+
+@app.route('/videos/<int:video_id>/completion/', methods=['POST'])
+def post_completion(video_id):
+
+	# videoの存在チェック
+	if not is_exists_record('videos', 'id = {0}'.format(video_id)):
+		response = make_response()
+		response.status_code = 400
+		return response
+
+	# completionの存在チェック
+	if is_exists_record('completions', 'video_id = {0}'.format(video_id)):
+		# TODO OAuthを実装した後に修正する(ログインユーザのuser_idを使用するように)
+		# 既に視聴済み登録されていないかのチェック
+		if is_exists_record('users_completions', 'user_id = {0} and video_id = {1}'.format(1, video_id)):
+			response = make_response()
+			response.status_code = 400
+			return response
+	else:
+		ins_cursor = db_connector.cursor(buffered = True)
+		ins_cursor.execute('insert into completions (video_id) values ({0})'.format(video_id))
+		db_connector.commit()
+		ins_cursor.close()
+
+	ins_cursor = db_connector.cursor(buffered = True)
+	ins_cursor.execute('insert into users_completions (user_id, video_id) values ({0}, {1})'.format(1, video_id))
+	db_connector.commit()
+	ins_cursor.close()
+
+	response = make_response()
 	response.status_code = 201
 
 	return response
