@@ -103,6 +103,7 @@ def post_my_contributor():
 	post_data = json.loads(request.data.decode(sys.stdin.encoding))
 	contributor_id = post_data['id']
 
+	# TODO まだ登録されていないcontributorが指定された場合どうしよう…
 	# contributor_idの存在チェック
 	if not is_exists_record('contributors', 'id = {0}'.format(contributor_id)):
 		response = jsonify(post_data)
@@ -118,6 +119,35 @@ def post_my_contributor():
 
 	ins_cursor = db_connector.cursor(buffered = True)
 	ins_cursor.execute('insert into users_contributors (user_id, contributor_id) values ({0}, {1})'.format(1, contributor_id))
+	db_connector.commit()
+	ins_cursor.close()
+
+	response = jsonify(post_data)
+	response.status_code = 201
+
+	return response
+
+@app.route('/my/contributors/', methods=['DELETE'])
+def delete_my_contributor():
+	post_data = json.loads(request.data.decode(sys.stdin.encoding))
+	contributor_id = post_data['id']
+
+	# TODO まだ登録されていないcontributorが指定された場合どうしよう…
+	# contributor_idの存在チェック
+	if not is_exists_record('contributors', 'id = {0}'.format(contributor_id)):
+		response = jsonify(post_data)
+		response.status_code = 400
+		return response
+
+	# TODO OAuthを実装した後に修正する(ログインユーザのuser_idを使用するように)
+	# 登録されているかのチェック
+	if not is_exists_record('users_contributors', 'user_id = {0} and contributor_id = {1}'.format(1, contributor_id)):
+		response = jsonify(post_data)
+		response.status_code = 400
+		return response
+
+	ins_cursor = db_connector.cursor(buffered = True)
+	ins_cursor.execute('delete from users_contributors where user_id = {0} and contributor_id = {1}'.format(1, contributor_id))
 	db_connector.commit()
 	ins_cursor.close()
 
