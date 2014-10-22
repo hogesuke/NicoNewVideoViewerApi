@@ -28,7 +28,11 @@ def get_videos_list():
 	page = get_page_no(request.args.get('page'))
 
 	cursor = db_connector.cursor(dictionary = True)
-	cursor.execute('select serial_no, id from videos order by serial_no desc limit {start}, {count}'.format(start=(page - 1) * pieces_num, count=pieces_num))
+	cursor.execute('''
+		select *
+		from videos
+		order by serial_no desc
+		limit {start}, {count}'''.format(start=(page - 1) * pieces_num, count=pieces_num))
 
 	rows = cursor.fetchall()
 	cursor.close()
