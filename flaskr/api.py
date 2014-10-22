@@ -27,12 +27,16 @@ def get_videos_list():
 	pieces_num = 20
 	page = get_page_no(request.args.get('page'))
 
+	# TODO OAuthを実装した後に修正する(ログインユーザのuser_idを使用するように)
+	# TODO 未ログイン時の実装も別に必要
 	cursor = db_connector.cursor(dictionary = True)
 	cursor.execute('''
-		select *
-		from videos
+		select vi.*, if(ucp.video_id <=> NULL, 'false', 'true') watched
+		from videos vi
+		left outer join users_completions ucp
+		on vi.id = ucp.video_id and ucp.user_id = {user_id}
 		order by serial_no desc
-		limit {start}, {count}'''.format(start=(page - 1) * pieces_num, count=pieces_num))
+		limit {start}, {count}'''.format(user_id=1, start=(page - 1) * pieces_num, count=pieces_num))
 
 	rows = cursor.fetchall()
 	cursor.close()
@@ -50,12 +54,14 @@ def get_my_videos():
 	# TODO OAuthを実装した後に修正する(ログインユーザのuser_idを使用するように)
 	cursor = db_connector.cursor(dictionary = True)
 	cursor.execute('''
-		select vi.*
+		select vi.*, if(ucp.video_id <=> NULL, 'false', 'true') watched
 		from videos vi
 		inner join videos_contributors vc
 		on vi.id = vc.video_id
 		inner join users_contributors uc
 		on vc.contributor_id = uc.contributor_id
+		left outer join users_completions ucp
+		on vi.id = ucp.video_id and uc.user_id = ucp.user_id
 		where uc.user_id = {user_id}
 		order by vi.serial_no desc
 		limit {start}, {count}'''.format(user_id=1, start=(page - 1) * piece_num, count=piece_num))
