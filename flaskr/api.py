@@ -190,7 +190,7 @@ def default(obj):
 	return millis
 
 """
-ページ番号を取得する
+リクエストパラメータからページ番号を取得する
 
 @type arg_page: str
 @param arg_page: リクエストパラメータで指定されたpage
