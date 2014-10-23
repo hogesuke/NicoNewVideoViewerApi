@@ -117,10 +117,7 @@ def post_my_contributor():
 		response.status_code = 400
 		return response
 
-	ins_cursor = db_connector.cursor(buffered = True)
-	ins_cursor.execute('insert into users_contributors (user_id, contributor_id) values ({0}, {1})'.format(1, contributor_id))
-	db_connector.commit()
-	ins_cursor.close()
+	exec_sql('insert into users_contributors (user_id, contributor_id) values ({0}, {1})'.format(1, contributor_id), True)
 
 	response = jsonify(post_data)
 	response.status_code = 201
@@ -146,10 +143,7 @@ def delete_my_contributor():
 		response.status_code = 400
 		return response
 
-	ins_cursor = db_connector.cursor(buffered = True)
-	ins_cursor.execute('delete from users_contributors where user_id = {0} and contributor_id = {1}'.format(1, contributor_id))
-	db_connector.commit()
-	ins_cursor.close()
+	exec_sql('delete from users_contributors where user_id = {0} and contributor_id = {1}'.format(1, contributor_id), True)
 
 	response = jsonify(post_data)
 	response.status_code = 201
@@ -174,15 +168,9 @@ def post_completion(video_id):
 			response.status_code = 400
 			return response
 	else:
-		ins_cursor = db_connector.cursor(buffered = True)
-		ins_cursor.execute('insert into completions (video_id) values ({0})'.format(video_id))
-		db_connector.commit()
-		ins_cursor.close()
+		exec_sql('insert into completions (video_id) values ({0})'.format(video_id), False)
 
-	ins_cursor = db_connector.cursor(buffered = True)
-	ins_cursor.execute('insert into users_completions (user_id, video_id) values ({0}, {1})'.format(1, video_id))
-	db_connector.commit()
-	ins_cursor.close()
+	exec_sql('insert into users_completions (user_id, video_id) values ({0}, {1})'.format(1, video_id), True)
 
 	response = make_response()
 	response.status_code = 201
@@ -236,3 +224,19 @@ def is_exists_record(target_tbl, where):
 		return True
 	else:
 		return False
+
+"""
+SQLの実行。
+INSERT, UPDATE, DELETEのSQLを実行する。
+
+@type sql: str
+@param sql: 実行対象のsql
+@type commit: bool
+@param commit: commitするか否か
+"""
+def exec_sql(sql, commit):
+	ins_cursor = db_connector.cursor()
+	ins_cursor.execute(sql)
+	ins_cursor.close()
+	if commit:
+		db_connector.commit()
