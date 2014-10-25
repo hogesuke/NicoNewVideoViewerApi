@@ -46,7 +46,7 @@ def get_videos_list():
 	response.status_code = 200
 	return response
 
-@app.route('/my/videos/', methods=['GET'])
+@app.route('/my/videos/list/', methods=['GET'])
 def get_my_videos():
 	piece_num = 20
 	page = get_page_no(request.args.get('page'))
