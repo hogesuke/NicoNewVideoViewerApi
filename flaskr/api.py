@@ -46,6 +46,20 @@ def get_videos_list():
 	response.status_code = 200
 	return response
 
+@app.route('/videos/count/', methods=['GET'])
+def get_videos_count():
+
+	cursor = db_connector.cursor(dictionary = True)
+	cursor.execute('select count(id) count from videos')
+
+	cnt_row = cursor.fetchone()
+	cursor.close()
+
+	response = make_response()
+	response.data = json.dumps(cnt_row, default=default)
+	response.status_code = 200
+	return response
+
 @app.route('/my/videos/list/', methods=['GET'])
 def get_my_videos():
 	piece_num = 20
@@ -71,6 +85,28 @@ def get_my_videos():
 
 	response = make_response()
 	response.data = json.dumps(rows, default=default)
+	response.status_code = 200
+	return response
+
+@app.route('/my/videos/count/', methods=['GET'])
+def get_my_videos_count():
+
+	# TODO OAuthを実装した後に修正する(ログインユーザのuser_idを使用するように)
+	cursor = db_connector.cursor(dictionary = True)
+	cursor.execute('''
+		select count(vi.id) count
+		from videos vi
+		inner join videos_contributors vc
+		on vi.id = vc.video_id
+		inner join users_contributors uc
+		on vc.contributor_id = uc.contributor_id
+		where uc.user_id = {user_id}'''.format(user_id=1))
+
+	cnt_row = cursor.fetchone()
+	cursor.close()
+
+	response = make_response()
+	response.data = json.dumps(cnt_row, default=default)
 	response.status_code = 200
 	return response
 
