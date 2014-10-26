@@ -31,8 +31,10 @@ def get_videos_list():
 	# TODO 未ログイン時の実装も別に必要
 	cursor = db_connector.cursor(dictionary = True)
 	cursor.execute('''
-		select vi.*, if(ucp.video_id <=> NULL, 'false', 'true') watched
+		select vi.*, cb.icon_url, if(ucp.video_id <=> NULL, 'false', 'true') watched
 		from videos vi
+		inner join contributors cb
+		on  vi.contributor_id = cb.id
 		left outer join users_completions ucp
 		on vi.id = ucp.video_id and ucp.user_id = {user_id}
 		order by serial_no desc
@@ -66,14 +68,17 @@ def get_my_videos():
 	page = get_page_no(request.args.get('page'))
 
 	# TODO OAuthを実装した後に修正する(ログインユーザのuser_idを使用するように)
+	# 複数人実況などでvideoが重複して取得される場合があるのでdistinctを付与
 	cursor = db_connector.cursor(dictionary = True)
 	cursor.execute('''
-		select vi.*, if(ucp.video_id <=> NULL, 'false', 'true') watched
+		select distinct vi.*, cb.icon_url, if(ucp.video_id <=> NULL, 'false', 'true') watched
 		from videos vi
 		inner join videos_contributors vc
 		on vi.id = vc.video_id
 		inner join users_contributors uc
 		on vc.contributor_id = uc.contributor_id
+		inner join contributors cb
+		on  vi.contributor_id = cb.id
 		left outer join users_completions ucp
 		on vi.id = ucp.video_id and uc.user_id = ucp.user_id
 		where uc.user_id = {user_id}
