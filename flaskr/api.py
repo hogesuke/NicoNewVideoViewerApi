@@ -213,7 +213,7 @@ def post_completion(video_id):
 
 	exec_sql('insert into users_completions (user_id, video_id) values ({0}, {1})'.format(1, video_id), True)
 
-	response = make_response()
+	response = jsonify({'isWatched': 'true'})
 	response.status_code = 201
 
 	return response
