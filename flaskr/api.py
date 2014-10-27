@@ -203,10 +203,11 @@ def post_completion(video_id):
 	# completionの存在チェック
 	if is_exists_record('completions', 'video_id = {0}'.format(video_id)):
 		# TODO OAuthを実装した後に修正する(ログインユーザのuser_idを使用するように)
-		# 既に視聴済み登録されていないかのチェック
+		# 既に視聴済みの場合は、レコードを削除し未視聴とする
 		if is_exists_record('users_completions', 'user_id = {0} and video_id = {1}'.format(1, video_id)):
-			response = make_response()
-			response.status_code = 400
+			exec_sql('delete from users_completions where user_id = {0} and video_id = {1}'.format(1, video_id), True)
+			response = jsonify({'isWatched': 'false'})
+			response.status_code = 201
 			return response
 	else:
 		exec_sql('insert into completions (video_id) values ({0})'.format(video_id), False)
@@ -215,7 +216,6 @@ def post_completion(video_id):
 
 	response = jsonify({'isWatched': 'true'})
 	response.status_code = 201
-
 	return response
 
 def default(obj):
