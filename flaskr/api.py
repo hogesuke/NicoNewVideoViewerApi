@@ -115,6 +115,59 @@ def get_my_videos_count():
 	response.status_code = 200
 	return response
 
+@app.route('/contributors/<int:contributor_id>/videos/list/', methods=['GET'])
+def get_contributor_videos(contributor_id):
+	piece_num = 20
+	page = get_page_no(request.args.get('page'))
+
+	# TODO OAuthを実装した後に修正する(ログインユーザのuser_idを使用するように)
+	# 複数人実況などでvideoが重複して取得される場合があるのでdistinctを付与
+	cursor = db_connector.cursor(dictionary = True)
+	cursor.execute('''
+		select distinct vi.*, cb.icon_url, if(ucp.video_id <=> NULL, 'false', 'true') watched
+		from videos vi
+		inner join videos_contributors vc
+		on vi.id = vc.video_id
+		inner join users_contributors uc
+		on vc.contributor_id = uc.contributor_id
+		inner join contributors cb
+		on  vi.contributor_id = cb.id
+		left outer join users_completions ucp
+		on vi.id = ucp.video_id and uc.user_id = ucp.user_id
+		where uc.user_id = {user_id} and vc.contributor_id = {contributor_id}
+		order by vi.serial_no desc
+		limit {start}, {count}'''.format(user_id=1, contributor_id=contributor_id, start=(page - 1) * piece_num, count=piece_num))
+
+	rows = cursor.fetchall()
+	cursor.close()
+
+	response = make_response()
+	response.data = json.dumps(rows, default=default)
+	response.status_code = 200
+	return response
+
+@app.route('/contributors/<int:contributor_id>/videos/count/', methods=['GET'])
+def get_contributor_videos_count(contributor_id):
+
+	# TODO OAuthを実装した後に修正する(ログインユーザのuser_idを使用するように)
+	cursor = db_connector.cursor(dictionary = True)
+	cursor.execute('''
+		select count(vi.id) count
+		from videos vi
+		inner join videos_contributors vc
+		on vi.id = vc.video_id
+		inner join users_contributors uc
+		on vc.contributor_id = uc.contributor_id
+		where uc.user_id = {user_id} and vc.contributor_id = {contributor_id}'''.format(user_id=1, contributor_id=contributor_id))
+
+	cnt_row = cursor.fetchone()
+	cursor.close()
+
+	response = make_response()
+	response.data = json.dumps(cnt_row, default=default)
+	response.status_code = 200
+	return response
+
 @app.route('/my/contributors/', methods=['GET'])
 def get_my_contributor():
 	contributor_num = 20
