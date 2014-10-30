@@ -197,12 +197,19 @@ def post_my_contributor():
 	post_data = json.loads(request.data.decode(sys.stdin.encoding))
 	contributor_id = post_data['id']
 
-	# TODO まだ登録されていないcontributorが指定された場合どうしよう…
 	# contributor_idの存在チェック
 	if not is_exists_record('contributors', 'id = {0}'.format(contributor_id)):
-		response = jsonify(post_data)
-		response.status_code = 400
-		return response
+		res = urllib.request.urlopen('http://api.ce.nicovideo.jp/api/v1/user.info?user_id=' + str(contributor_id))
+		body = res.read()
+		contributor_xml = xmltodict.parse(body)
+
+		if contributor_xml['nicovideo_user_response']['vita_option']['user_secret'] == '1':
+			response = jsonify(post_data)
+			response.status_code = 400
+			return response
+		else:
+			exec_sql('insert into contributors (id, name, icon_url) values ({0}, \'{1}\', \'{2}\')'.format(
+				contributor_id, contributor_xml['nicovideo_user_response']['user']['nickname'], contributor_xml['nicovideo_user_response']['user']['thumbnail_url']), False)
 
 	# TODO OAuthを実装した後に修正する(ログインユーザのuser_idを使用するように)
 	# 既に登録されていないかのチェック
