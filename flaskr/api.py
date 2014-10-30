@@ -220,7 +220,21 @@ def post_my_contributor():
 
 	exec_sql('insert into users_contributors (user_id, contributor_id) values ({0}, {1})'.format(1, contributor_id), True)
 
-	response = jsonify(post_data)
+	cursor = db_connector.cursor(dictionary = True)
+	cursor.execute('''
+		select cb.*
+		from users_contributors uc
+		inner join contributors cb
+		on uc.contributor_id = cb.id
+		where uc.user_id = {user_id}
+		order by uc.created_datetime desc
+		limit 0, 20'''.format(user_id=1))
+
+	rows = cursor.fetchall()
+	cursor.close()
+
+	response = make_response()
+	response.data = json.dumps(rows, default=default)
 	response.status_code = 201
 
 	return response
@@ -230,7 +244,6 @@ def delete_my_contributor():
 	post_data = json.loads(request.data.decode(sys.stdin.encoding))
 	contributor_id = post_data['id']
 
-	# TODO まだ登録されていないcontributorが指定された場合どうしよう…
 	# contributor_idの存在チェック
 	if not is_exists_record('contributors', 'id = {0}'.format(contributor_id)):
 		response = jsonify(post_data)
