@@ -24,8 +24,8 @@ def get_video(videos_id):
 
 @app.route('/videos/list/', methods=['GET'])
 def get_videos_list():
-	pieces_num = 20
 	page = get_page_no(request.args.get('page'))
+	perpage = get_perpage_no(request.args.get('perpage'))
 
 	# TODO OAuthを実装した後に修正する(ログインユーザのuser_idを使用するように)
 	# TODO 未ログイン時の実装も別に必要
@@ -38,7 +38,7 @@ def get_videos_list():
 		left outer join users_completions ucp
 		on vi.id = ucp.video_id and ucp.user_id = {user_id}
 		order by serial_no desc
-		limit {start}, {count}'''.format(user_id=1, start=(page - 1) * pieces_num, count=pieces_num))
+		limit {start}, {count}'''.format(user_id=1, start=(page - 1) * perpage, count=perpage))
 
 	rows = cursor.fetchall()
 	cursor.close()
@@ -64,8 +64,8 @@ def get_videos_count():
 
 @app.route('/my/videos/list/', methods=['GET'])
 def get_my_videos():
-	piece_num = 20
 	page = get_page_no(request.args.get('page'))
+	perpage = get_perpage_no(request.args.get('perpage'))
 
 	# TODO OAuthを実装した後に修正する(ログインユーザのuser_idを使用するように)
 	# 複数人実況などでvideoが重複して取得される場合があるのでdistinctを付与
@@ -83,7 +83,7 @@ def get_my_videos():
 		on vi.id = ucp.video_id and uc.user_id = ucp.user_id
 		where uc.user_id = {user_id}
 		order by vi.serial_no desc
-		limit {start}, {count}'''.format(user_id=1, start=(page - 1) * piece_num, count=piece_num))
+		limit {start}, {count}'''.format(user_id=1, start=(page - 1) * perpage, count=perpage))
 
 	rows = cursor.fetchall()
 	cursor.close()
@@ -117,8 +117,8 @@ def get_my_videos_count():
 
 @app.route('/contributors/<int:contributor_id>/videos/list/', methods=['GET'])
 def get_contributor_videos(contributor_id):
-	piece_num = 20
 	page = get_page_no(request.args.get('page'))
+	perpage = get_perpage_no(request.args.get('perpage'))
 
 	# TODO OAuthを実装した後に修正する(ログインユーザのuser_idを使用するように)
 	# 複数人実況などでvideoが重複して取得される場合があるのでdistinctを付与
@@ -136,7 +136,7 @@ def get_contributor_videos(contributor_id):
 		on vi.id = ucp.video_id and uc.user_id = ucp.user_id
 		where uc.user_id = {user_id} and vc.contributor_id = {contributor_id}
 		order by vi.serial_no desc
-		limit {start}, {count}'''.format(user_id=1, contributor_id=contributor_id, start=(page - 1) * piece_num, count=piece_num))
+		limit {start}, {count}'''.format(user_id=1, contributor_id=contributor_id, start=(page - 1) * perpage, count=perpage))
 
 	rows = cursor.fetchall()
 	cursor.close()
@@ -170,8 +170,8 @@ def get_contributor_videos_count(contributor_id):
 
 @app.route('/my/contributors/', methods=['GET'])
 def get_my_contributor():
-	contributor_num = 20
 	page = get_page_no(request.args.get('page'))
+	perpage = get_perpage_no(request.args.get('perpage'))
 
 	# TODO OAuthを実装した後に修正する(ログインユーザのuser_idを使用するように)
 	cursor = db_connector.cursor(dictionary = True)
@@ -182,13 +182,32 @@ def get_my_contributor():
 		on uc.contributor_id = cb.id
 		where uc.user_id = {user_id}
 		order by uc.created_datetime desc
-		limit {start}, {count}'''.format(user_id=1, start=(page - 1) * contributor_num, count=contributor_num))
+		limit {start}, {count}'''.format(user_id=1, start=(page - 1) * perpage, count=perpage))
 
 	rows = cursor.fetchall()
 	cursor.close()
 
 	response = make_response()
 	response.data = json.dumps(rows, default=default)
+	response.status_code = 200
+	return response
+
+@app.route('/my/contributors/count/', methods=['GET'])
+def get_my_contributor_count():
+	# TODO OAuthを実装した後に修正する(ログインユーザのuser_idを使用するように)
+	cursor = db_connector.cursor(dictionary = True)
+	cursor.execute('''
+		select count(uc.contributor_id) count
+		from users_contributors uc
+		inner join contributors cb
+		on uc.contributor_id = cb.id
+		where uc.user_id = {user_id}'''.format(user_id=1))
+
+	row = cursor.fetchone()
+	cursor.close()
+
+	response = make_response()
+	response.data = json.dumps(row, default=default)
 	response.status_code = 200
 	return response
 
@@ -318,6 +337,22 @@ def get_page_no(param_page):
 		page = int(param_page)
 
 	return page
+
+"""
+リクエストパラメータからページあたりの数を取得する
+
+@type arg_perpage: str
+@param arg_perpage: リクエストパラメータで指定されたperpage
+@return リクエストパラメータのperpageに有効な値が設定されている場合は、
+        リクエストパラメータのperpageを数値に変換し返却。
+        有効でない値の場合は、20を返却。
+"""
+def get_perpage_no(param_perpage):
+	perpage = 20
+	if param_perpage is not None and param_perpage.isdigit() and int(param_perpage) > 0:
+		perpage = int(param_perpage)
+
+	return perpage
 
 """
 レコードの存在チェック
