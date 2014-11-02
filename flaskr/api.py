@@ -67,7 +67,7 @@ def get_my_videos():
 	page = get_page_no(request.args.get('page'))
 	perpage = get_perpage_no(request.args.get('perpage'))
 
-	# TODO OAuthを実装した後に修正する(ログインユーザのuser_idを使用するように)
+	# TODO OAuthを実装した後に修正する(ログインユーザのuser_idを使用するように )
 	# 複数人実況などでvideoが重複して取得される場合があるのでdistinctを付与
 	cursor = db_connector.cursor(dictionary = True)
 	cursor.execute('''
