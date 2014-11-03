@@ -1,10 +1,68 @@
-from flask import request, render_template, jsonify, make_response
+from flask import request, session, render_template, jsonify, make_response, redirect
 from flaskr import app
 from flaskr import db_connector
+from flaskr import twitter
 import urllib.request
 import json
 import xmltodict
 import sys
+
+@app.route('/authorize/status/', methods=['GET'])
+def get_authorize_status():
+	response = make_response()
+
+	if 'user_id' in session:
+		response.status_code = 200
+	else:
+		response.status_code = 401
+
+	return response
+
+@app.route('/authorize/', methods=['GET'])
+def get_authorize_url():
+	request_token, request_token_secret = twitter.get_request_token()
+	authorize_url = twitter.get_authorize_url(request_token)
+
+	session['request_token'] = request_token
+	session['request_token_secret'] = request_token_secret
+
+	response = make_response()
+	response.data = json.dumps({'authorize_url': authorize_url}, default=default)
+	response.status_code = 200
+	return response
+
+@app.route('/callback/twitter/', methods=['GET'])
+def callback_twitter():
+	oauth_verifier = request.args['oauth_verifier']
+
+	auth_session = twitter.get_auth_session(session['request_token'],
+							 session['request_token_secret'],
+							 method = 'POST',
+							 data = {'oauth_verifier': oauth_verifier})
+	verify = auth_session.get('account/verify_credentials.json')
+	if verify.status_code != 200:
+		response = make_response()
+		response.status_code = 401
+		return response
+
+	user_info = verify.json()
+	print('user_info[id]')
+	print(user_info['id'])
+	if not is_exists_record('users', 'provider_id = {0}'.format(user_info['id'])):
+		exec_sql('insert into users(provider_id, provider_name, raw_name, name) values ({0}, \'{1}\', \'{2}\', \'{3}\')'.format(
+			user_info['id'], 'twitter', user_info['screen_name'], user_info['name']), True)
+
+	cursor = db_connector.cursor(dictionary = True)
+	cursor.execute('''
+		select *
+		from users
+		where provider_id = {provider_id}'''.format(provider_id = user_info['id']))
+
+	row = cursor.fetchone()
+	cursor.close()
+
+	session['user_id'] = row['id']
+	return redirect('/')
 
 @app.route('/videos/<int:videos_id>', methods=['GET'])
 def get_video(videos_id):
@@ -31,14 +89,35 @@ def get_videos_list():
 	# TODO 未ログイン時の実装も別に必要
 	cursor = db_connector.cursor(dictionary = True)
 	cursor.execute('''
-		select vi.*, cb.icon_url, if(ucp.video_id <=> NULL, 'false', 'true') watched
-		from videos vi
-		inner join contributors cb
-		on  vi.contributor_id = cb.id
-		left outer join users_completions ucp
-		on vi.id = ucp.video_id and ucp.user_id = {user_id}
-		order by serial_no desc
-		limit {start}, {count}'''.format(user_id=1, start=(page - 1) * perpage, count=perpage))
+			select vi.*, cb.icon_url, if(ucp.video_id <=> NULL, 'false', 'true') watched
+			from videos vi
+			inner join contributors cb
+			on  vi.contributor_id = cb.id
+			left outer join users_completions ucp
+			on vi.id = ucp.video_id and ucp.user_id = {user_id}
+			order by serial_no desc
+			limit {start}, {count}'''.format(user_id = 1, start = (page - 1) * perpage, count = perpage))
+
+	# if session['user_id'] is not None:
+	# 	cursor = db_connector.cursor(dictionary = True)
+	# 	cursor.execute('''
+	# 		select vi.*, cb.icon_url, if(ucp.video_id <=> NULL, 'false', 'true') watched
+	# 		from videos vi
+	# 		inner join contributors cb
+	# 		on  vi.contributor_id = cb.id
+	# 		left outer join users_completions ucp
+	# 		on vi.id = ucp.video_id and ucp.user_id = {user_id}
+	# 		order by serial_no desc
+	# 		limit {start}, {count}'''.format(user_id = session['user_id'], start = (page - 1) * perpage, count = perpage))
+	# else:
+	# 	cursor = db_connector.cursor(dictionary = True)
+	# 	cursor.execute('''
+	# 		select vi.*, cb.icon_url
+	# 		from videos vi
+	# 		inner join contributors cb
+	# 		on  vi.contributor_id = cb.id
+	# 		order by serial_no desc
+	# 		limit {start}, {count}'''.format(start = (page - 1) * perpage, count = perpage))
 
 	rows = cursor.fetchall()
 	cursor.close()
