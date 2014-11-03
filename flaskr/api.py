@@ -44,10 +44,8 @@ def callback_twitter():
 		response = make_response()
 		response.status_code = 401
 		return response
-
 	user_info = verify.json()
-	print('user_info[id]')
-	print(user_info['id'])
+
 	if not is_exists_record('users', 'provider_id = {0}'.format(user_info['id'])):
 		exec_sql('insert into users(provider_id, provider_name, raw_name, name) values ({0}, \'{1}\', \'{2}\', \'{3}\')'.format(
 			user_info['id'], 'twitter', user_info['screen_name'], user_info['name']), True)
@@ -85,39 +83,26 @@ def get_videos_list():
 	page = get_page_no(request.args.get('page'))
 	perpage = get_perpage_no(request.args.get('perpage'))
 
-	# TODO OAuthを実装した後に修正する(ログインユーザのuser_idを使用するように)
-	# TODO 未ログイン時の実装も別に必要
-	cursor = db_connector.cursor(dictionary = True)
-	cursor.execute('''
-			select vi.*, cb.icon_url, if(ucp.video_id <=> NULL, 'false', 'true') watched
+	if 'user_id' in session:
+		cursor = db_connector.cursor(dictionary = True)
+		cursor.execute('''
+				select vi.*, cb.icon_url, if(ucp.video_id <=> NULL, 'false', 'true') watched
+				from videos vi
+				inner join contributors cb
+				on  vi.contributor_id = cb.id
+				left outer join users_completions ucp
+				on vi.id = ucp.video_id and ucp.user_id = {user_id}
+				order by serial_no desc
+				limit {start}, {count}'''.format(user_id = session['user_id'], start = (page - 1) * perpage, count = perpage))
+	else:
+		cursor = db_connector.cursor(dictionary = True)
+		cursor.execute('''
+			select vi.*, cb.icon_url
 			from videos vi
 			inner join contributors cb
 			on  vi.contributor_id = cb.id
-			left outer join users_completions ucp
-			on vi.id = ucp.video_id and ucp.user_id = {user_id}
 			order by serial_no desc
-			limit {start}, {count}'''.format(user_id = 1, start = (page - 1) * perpage, count = perpage))
-
-	# if session['user_id'] is not None:
-	# 	cursor = db_connector.cursor(dictionary = True)
-	# 	cursor.execute('''
-	# 		select vi.*, cb.icon_url, if(ucp.video_id <=> NULL, 'false', 'true') watched
-	# 		from videos vi
-	# 		inner join contributors cb
-	# 		on  vi.contributor_id = cb.id
-	# 		left outer join users_completions ucp
-	# 		on vi.id = ucp.video_id and ucp.user_id = {user_id}
-	# 		order by serial_no desc
-	# 		limit {start}, {count}'''.format(user_id = session['user_id'], start = (page - 1) * perpage, count = perpage))
-	# else:
-	# 	cursor = db_connector.cursor(dictionary = True)
-	# 	cursor.execute('''
-	# 		select vi.*, cb.icon_url
-	# 		from videos vi
-	# 		inner join contributors cb
-	# 		on  vi.contributor_id = cb.id
-	# 		order by serial_no desc
-	# 		limit {start}, {count}'''.format(start = (page - 1) * perpage, count = perpage))
+			limit {start}, {count}'''.format(start = (page - 1) * perpage, count = perpage))
 
 	rows = cursor.fetchall()
 	cursor.close()
@@ -143,10 +128,14 @@ def get_videos_count():
 
 @app.route('/my/videos/list/', methods=['GET'])
 def get_my_videos():
+	if 'user_id' not in session:
+		response = make_response()
+		response.status_code = 401
+		return response
+
 	page = get_page_no(request.args.get('page'))
 	perpage = get_perpage_no(request.args.get('perpage'))
 
-	# TODO OAuthを実装した後に修正する(ログインユーザのuser_idを使用するように )
 	# 複数人実況などでvideoが重複して取得される場合があるのでdistinctを付与
 	cursor = db_connector.cursor(dictionary = True)
 	cursor.execute('''
@@ -162,7 +151,7 @@ def get_my_videos():
 		on vi.id = ucp.video_id and uc.user_id = ucp.user_id
 		where uc.user_id = {user_id}
 		order by vi.serial_no desc
-		limit {start}, {count}'''.format(user_id=1, start=(page - 1) * perpage, count=perpage))
+		limit {start}, {count}'''.format(user_id = session['user_id'], start = (page - 1) * perpage, count = perpage))
 
 	rows = cursor.fetchall()
 	cursor.close()
@@ -174,8 +163,11 @@ def get_my_videos():
 
 @app.route('/my/videos/count/', methods=['GET'])
 def get_my_videos_count():
+	if 'user_id' not in session:
+		response = make_response()
+		response.status_code = 401
+		return response
 
-	# TODO OAuthを実装した後に修正する(ログインユーザのuser_idを使用するように)
 	cursor = db_connector.cursor(dictionary = True)
 	cursor.execute('''
 		select count(vi.id) count
@@ -184,7 +176,7 @@ def get_my_videos_count():
 		on vi.id = vc.video_id
 		inner join users_contributors uc
 		on vc.contributor_id = uc.contributor_id
-		where uc.user_id = {user_id}'''.format(user_id=1))
+		where uc.user_id = {user_id}'''.format(user_id = session['user_id']))
 
 	cnt_row = cursor.fetchone()
 	cursor.close()
@@ -199,23 +191,34 @@ def get_contributor_videos(contributor_id):
 	page = get_page_no(request.args.get('page'))
 	perpage = get_perpage_no(request.args.get('perpage'))
 
-	# TODO OAuthを実装した後に修正する(ログインユーザのuser_idを使用するように)
-	# 複数人実況などでvideoが重複して取得される場合があるのでdistinctを付与
-	cursor = db_connector.cursor(dictionary = True)
-	cursor.execute('''
-		select distinct vi.*, cb.icon_url, if(ucp.video_id <=> NULL, 'false', 'true') watched
-		from videos vi
-		inner join videos_contributors vc
-		on vi.id = vc.video_id
-		inner join users_contributors uc
-		on vc.contributor_id = uc.contributor_id
-		inner join contributors cb
-		on  vi.contributor_id = cb.id
-		left outer join users_completions ucp
-		on vi.id = ucp.video_id and uc.user_id = ucp.user_id
-		where uc.user_id = {user_id} and vc.contributor_id = {contributor_id}
-		order by vi.serial_no desc
-		limit {start}, {count}'''.format(user_id=1, contributor_id=contributor_id, start=(page - 1) * perpage, count=perpage))
+	if 'user_id' in session:
+		cursor = db_connector.cursor(dictionary = True)
+		cursor.execute('''
+			select vi.*, cb.icon_url, if(ucp.video_id <=> NULL, 'false', 'true') watched
+			from videos vi
+			inner join videos_contributors vc
+			on vi.id = vc.video_id
+			inner join users_contributors uc
+			on vc.contributor_id = uc.contributor_id
+			inner join contributors cb
+			on  vi.contributor_id = cb.id
+			left outer join users_completions ucp
+			on vi.id = ucp.video_id and uc.user_id = ucp.user_id
+			where uc.user_id = {user_id} and vc.contributor_id = {contributor_id}
+			order by vi.serial_no desc
+			limit {start}, {count}'''.format(user_id = session['user_id'], contributor_id = contributor_id, start = (page - 1) * perpage, count = perpage))
+	else:
+		cursor = db_connector.cursor(dictionary = True)
+		cursor.execute('''
+			select vi.*, cb.icon_url
+			from videos vi
+			inner join videos_contributors vc
+			on vi.id = vc.video_id
+			inner join contributors cb
+			on  vi.contributor_id = cb.id
+			where vc.contributor_id = {contributor_id}
+			order by vi.serial_no desc
+			limit {start}, {count}'''.format(contributor_id = contributor_id, start = (page - 1) * perpage, count = perpage))
 
 	rows = cursor.fetchall()
 	cursor.close()
@@ -228,16 +231,13 @@ def get_contributor_videos(contributor_id):
 @app.route('/contributors/<int:contributor_id>/videos/count/', methods=['GET'])
 def get_contributor_videos_count(contributor_id):
 
-	# TODO OAuthを実装した後に修正する(ログインユーザのuser_idを使用するように)
 	cursor = db_connector.cursor(dictionary = True)
 	cursor.execute('''
 		select count(vi.id) count
 		from videos vi
 		inner join videos_contributors vc
 		on vi.id = vc.video_id
-		inner join users_contributors uc
-		on vc.contributor_id = uc.contributor_id
-		where uc.user_id = {user_id} and vc.contributor_id = {contributor_id}'''.format(user_id=1, contributor_id=contributor_id))
+		where vc.contributor_id = {contributor_id}'''.format(contributor_id=contributor_id))
 
 	cnt_row = cursor.fetchone()
 	cursor.close()
@@ -249,10 +249,14 @@ def get_contributor_videos_count(contributor_id):
 
 @app.route('/my/contributors/', methods=['GET'])
 def get_my_contributor():
+	if 'user_id' not in session:
+		response = make_response()
+		response.status_code = 401
+		return response
+
 	page = get_page_no(request.args.get('page'))
 	perpage = get_perpage_no(request.args.get('perpage'))
 
-	# TODO OAuthを実装した後に修正する(ログインユーザのuser_idを使用するように)
 	cursor = db_connector.cursor(dictionary = True)
 	cursor.execute('''
 		select cb.*
@@ -261,7 +265,7 @@ def get_my_contributor():
 		on uc.contributor_id = cb.id
 		where uc.user_id = {user_id}
 		order by uc.created_datetime desc
-		limit {start}, {count}'''.format(user_id=1, start=(page - 1) * perpage, count=perpage))
+		limit {start}, {count}'''.format(user_id = session['user_id'], start = (page - 1) * perpage, count = perpage))
 
 	rows = cursor.fetchall()
 	cursor.close()
@@ -273,14 +277,18 @@ def get_my_contributor():
 
 @app.route('/my/contributors/count/', methods=['GET'])
 def get_my_contributor_count():
-	# TODO OAuthを実装した後に修正する(ログインユーザのuser_idを使用するように)
+	if 'user_id' not in session:
+		response = make_response()
+		response.status_code = 401
+		return response
+
 	cursor = db_connector.cursor(dictionary = True)
 	cursor.execute('''
 		select count(uc.contributor_id) count
 		from users_contributors uc
 		inner join contributors cb
 		on uc.contributor_id = cb.id
-		where uc.user_id = {user_id}'''.format(user_id=1))
+		where uc.user_id = {user_id}'''.format(user_id = session['user_id']))
 
 	row = cursor.fetchone()
 	cursor.close()
@@ -292,6 +300,11 @@ def get_my_contributor_count():
 
 @app.route('/my/contributors/', methods=['POST'])
 def post_my_contributor():
+	if 'user_id' not in session:
+		response = make_response()
+		response.status_code = 401
+		return response
+
 	post_data = json.loads(request.data.decode(sys.stdin.encoding))
 	contributor_id = post_data['id']
 
@@ -301,7 +314,7 @@ def post_my_contributor():
 		body = res.read()
 		contributor_xml = xmltodict.parse(body)['nicovideo_user_response']
 
-		if contributor_xml['vita_option']['user_secret'] == '1':
+		if 'vita_option' not in contributor_xml or contributor_xml['vita_option']['user_secret'] == '1':
 			response = jsonify(post_data)
 			response.status_code = 400
 			return response
@@ -309,14 +322,15 @@ def post_my_contributor():
 			exec_sql('insert into contributors (id, name, icon_url) values ({0}, \'{1}\', \'{2}\')'.format(
 				contributor_id, contributor_xml['user']['nickname'], contributor_xml['user']['thumbnail_url']), False)
 
-	# TODO OAuthを実装した後に修正する(ログインユーザのuser_idを使用するように)
 	# 既に登録されていないかのチェック
-	if is_exists_record('users_contributors', 'user_id = {0} and contributor_id = {1}'.format(1, contributor_id)):
+	if is_exists_record('users_contributors','user_id = {user_id} and contributor_id = {contributor_id}'.format(
+			user_id = session['user_id'], contributor_id = contributor_id)):
 		response = jsonify(post_data)
 		response.status_code = 400
 		return response
 
-	exec_sql('insert into users_contributors (user_id, contributor_id) values ({0}, {1})'.format(1, contributor_id), True)
+	exec_sql('insert into users_contributors (user_id, contributor_id) values ({user_id}, {contributor_id})'.format(
+		user_id = session['user_id'], contributor_id = contributor_id), True)
 
 	cursor = db_connector.cursor(dictionary = True)
 	cursor.execute('''
@@ -326,7 +340,7 @@ def post_my_contributor():
 		on uc.contributor_id = cb.id
 		where uc.user_id = {user_id}
 		order by uc.created_datetime desc
-		limit 0, 20'''.format(user_id=1))
+		limit 0, 20'''.format(user_id = session['user_id']))
 
 	rows = cursor.fetchall()
 	cursor.close()
@@ -339,6 +353,11 @@ def post_my_contributor():
 
 @app.route('/my/contributors/', methods=['DELETE'])
 def delete_my_contributor():
+	if 'user_id' not in session:
+		response = make_response()
+		response.status_code = 401
+		return response
+
 	post_data = json.loads(request.data.decode(sys.stdin.encoding))
 	contributor_id = post_data['id']
 
@@ -348,14 +367,15 @@ def delete_my_contributor():
 		response.status_code = 400
 		return response
 
-	# TODO OAuthを実装した後に修正する(ログインユーザのuser_idを使用するように)
 	# 登録されているかのチェック
-	if not is_exists_record('users_contributors', 'user_id = {0} and contributor_id = {1}'.format(1, contributor_id)):
+	if not is_exists_record('users_contributors', 'user_id = {user_id} and contributor_id = {contributor_id}'.format(
+			user_id = session['user_id'], contributor_id = contributor_id)):
 		response = jsonify(post_data)
 		response.status_code = 400
 		return response
 
-	exec_sql('delete from users_contributors where user_id = {0} and contributor_id = {1}'.format(1, contributor_id), True)
+	exec_sql('delete from users_contributors where user_id = {user_id} and contributor_id = {contributor_id}'.format(
+		user_id = session['user_id'], contributor_id = contributor_id), True)
 
 	response = jsonify(post_data)
 	response.status_code = 201
@@ -364,6 +384,10 @@ def delete_my_contributor():
 
 @app.route('/videos/<int:video_id>/completion/', methods=['POST'])
 def post_completion(video_id):
+	if 'user_id' not in session:
+		response = make_response()
+		response.status_code = 401
+		return response
 
 	# videoの存在チェック
 	if not is_exists_record('videos', 'id = {0}'.format(video_id)):
@@ -373,17 +397,17 @@ def post_completion(video_id):
 
 	# completionの存在チェック
 	if is_exists_record('completions', 'video_id = {0}'.format(video_id)):
-		# TODO OAuthを実装した後に修正する(ログインユーザのuser_idを使用するように)
 		# 既に視聴済みの場合は、レコードを削除し未視聴とする
 		if is_exists_record('users_completions', 'user_id = {0} and video_id = {1}'.format(1, video_id)):
-			exec_sql('delete from users_completions where user_id = {0} and video_id = {1}'.format(1, video_id), True)
+			exec_sql('delete from users_completions where user_id = {user_id} and video_id = {video_id}'.format(
+				user_id = session['user_id'], video_id = video_id), True)
 			response = jsonify({'isWatched': 'false'})
 			response.status_code = 201
 			return response
 	else:
 		exec_sql('insert into completions (video_id) values ({0})'.format(video_id), False)
 
-	exec_sql('insert into users_completions (user_id, video_id) values ({0}, {1})'.format(1, video_id), True)
+	exec_sql('insert into users_completions (user_id, video_id) values ({user_id}, {video_id})'.format(user_id = session['user_id'], video_id = video_id), True)
 
 	response = jsonify({'isWatched': 'true'})
 	response.status_code = 201
