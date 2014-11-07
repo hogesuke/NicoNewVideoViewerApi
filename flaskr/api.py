@@ -360,6 +360,8 @@ def delete_my_contributor():
 
 	post_data = json.loads(request.data.decode(sys.stdin.encoding))
 	contributor_id = post_data['id']
+	perpage = post_data['items_per_page']
+	page = post_data['current_page']
 
 	# contributor_idの存在チェック
 	if not is_exists_record('contributors', 'id = {0}'.format(contributor_id)):
@@ -377,7 +379,21 @@ def delete_my_contributor():
 	exec_sql('delete from users_contributors where user_id = {user_id} and contributor_id = {contributor_id}'.format(
 		user_id = session['user_id'], contributor_id = contributor_id), True)
 
-	response = jsonify(post_data)
+	cursor = db_connector.cursor(dictionary = True)
+	cursor.execute('''
+		select cb.*
+		from users_contributors uc
+		inner join contributors cb
+		on uc.contributor_id = cb.id
+		where uc.user_id = {user_id}
+		order by uc.created_datetime desc
+		limit {start}, {count}'''.format(user_id = session['user_id'], start = (page - 1) * perpage, count = perpage))
+
+	rows = cursor.fetchall()
+	cursor.close()
+
+	response = make_response()
+	response.data = json.dumps(rows, default=default)
 	response.status_code = 201
 
 	return response
