@@ -315,7 +315,7 @@ def post_my_contributor():
 		contributor_xml = xmltodict.parse(body)['nicovideo_user_response']
 
 		if 'vita_option' not in contributor_xml or contributor_xml['vita_option']['user_secret'] == '1':
-			response = jsonify(post_data)
+			response = jsonify({'err_msg': '存在しないユーザーです。'})
 			response.status_code = 400
 			return response
 		else:
@@ -325,7 +325,7 @@ def post_my_contributor():
 	# 既に登録されていないかのチェック
 	if is_exists_record('users_contributors','user_id = {user_id} and contributor_id = {contributor_id}'.format(
 			user_id = session['user_id'], contributor_id = contributor_id)):
-		response = jsonify(post_data)
+		response = jsonify({'err_msg': '既に登録済みのユーザーです。'})
 		response.status_code = 400
 		return response
 
