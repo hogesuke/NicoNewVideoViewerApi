@@ -72,6 +72,32 @@ def callback_twitter():
 	session['user_id'] = row['id']
 	return redirect('/')
 
+@app.route('/user/', methods=['GET'])
+def get_user():
+	if 'user_id' not in session:
+		response = make_response()
+		response.status_code = 401
+		return response
+
+	cursor = db_connector.cursor(dictionary = True)
+	cursor.execute('''select u.raw_name, u.name, ucp.comp_count, uc.contributor_count
+		from users u,
+		(select count(video_id) comp_count
+		from users_completions
+		where user_id = {user_id}) ucp,
+		(select count(contributor_id) contributor_count
+		from users_contributors
+		where user_id = {user_id}) uc
+		where id = {user_id}'''.format(user_id = session['user_id']))
+
+	row = cursor.fetchone()
+	cursor.close()
+
+	response = make_response()
+	response.data = json.dumps(row, default=default)
+	response.status_code = 200
+	return response
+
 @app.route('/videos/<int:videos_id>', methods=['GET'])
 def get_video(videos_id):
 	res = urllib.request.urlopen('http://ext.nicovideo.jp/api/getthumbinfo/sm' + str(videos_id))
@@ -509,7 +535,7 @@ def post_completion(video_id):
 	# completionの存在チェック
 	if is_exists_record('completions', 'video_id = {0}'.format(video_id)):
 		# 既に視聴済みの場合は、レコードを削除し未視聴とする
-		if is_exists_record('users_completions', 'user_id = {0} and video_id = {1}'.format(1, video_id)):
+		if is_exists_record('users_completions', 'user_id = {0} and video_id = {1}'.format(session['user_id'], video_id)):
 			exec_sql('delete from users_completions where user_id = {user_id} and video_id = {video_id}'.format(
 				user_id = session['user_id'], video_id = video_id), True)
 			response = jsonify({'isWatched': 'false'})
