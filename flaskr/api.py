@@ -129,9 +129,18 @@ def get_videos_list():
 
 @app.route('/videos/count/', methods=['GET'])
 def get_videos_count():
+	unwatch_only = get_bool(request.args.get('unwatch_only'), False)
 
 	cursor = db_connector.cursor(dictionary = True)
-	cursor.execute('select count(id) count from videos')
+	if unwatch_only and 'user_id' in session:
+		cursor.execute('''
+			select count(id) count
+			from videos vi
+			left outer join users_completions ucp
+			on vi.id = ucp.video_id and ucp.user_id = {user_id}
+			where ucp.video_id is NULL'''.format(user_id = session['user_id']))
+	else:
+		cursor.execute('select count(id) count from videos')
 
 	cnt_row = cursor.fetchone()
 	cursor.close()
@@ -201,15 +210,29 @@ def get_my_videos_count():
 		response.status_code = 401
 		return response
 
+	unwatch_only = get_bool(request.args.get('unwatch_only'), False)
+
 	cursor = db_connector.cursor(dictionary = True)
-	cursor.execute('''
-		select count(vi.id) count
-		from videos vi
-		inner join videos_contributors vc
-		on vi.id = vc.video_id
-		inner join users_contributors uc
-		on vc.contributor_id = uc.contributor_id
-		where uc.user_id = {user_id}'''.format(user_id = session['user_id']))
+	if unwatch_only:
+		cursor.execute('''
+			select count(vi.id) count
+			from videos vi
+			inner join videos_contributors vc
+			on vi.id = vc.video_id
+			inner join users_contributors uc
+			on vc.contributor_id = uc.contributor_id
+			left outer join users_completions ucp
+			on vi.id = ucp.video_id and ucp.user_id = uc.user_id
+			where uc.user_id = {user_id} and ucp.video_id is NULL'''.format(user_id = session['user_id']))
+	else:
+		cursor.execute('''
+			select count(vi.id) count
+			from videos vi
+			inner join videos_contributors vc
+			on vi.id = vc.video_id
+			inner join users_contributors uc
+			on vc.contributor_id = uc.contributor_id
+			where uc.user_id = {user_id}'''.format(user_id = session['user_id']))
 
 	cnt_row = cursor.fetchone()
 	cursor.close()
@@ -281,14 +304,25 @@ def get_contributor_videos(contributor_id):
 
 @app.route('/contributors/<int:contributor_id>/videos/count/', methods=['GET'])
 def get_contributor_videos_count(contributor_id):
+	unwatch_only = get_bool(request.args.get('unwatch_only'), False)
 
 	cursor = db_connector.cursor(dictionary = True)
-	cursor.execute('''
-		select count(vi.id) count
-		from videos vi
-		inner join videos_contributors vc
-		on vi.id = vc.video_id
-		where vc.contributor_id = {contributor_id}'''.format(contributor_id=contributor_id))
+	if 'user_id' in session and unwatch_only:
+		cursor.execute('''
+			select count(vi.id) count
+			from videos vi
+			inner join videos_contributors vc
+			on vi.id = vc.video_id
+			left outer join users_completions ucp
+			on vi.id = ucp.video_id and ucp.user_id = {user_id}
+			where vc.contributor_id = {contributor_id} and ucp.video_id is NULL'''.format(contributor_id = contributor_id, user_id = session['user_id']))
+	else:
+		cursor.execute('''
+			select count(vi.id) count
+			from videos vi
+			inner join videos_contributors vc
+			on vi.id = vc.video_id
+			where vc.contributor_id = {contributor_id}'''.format(contributor_id=contributor_id))
 
 	cnt_row = cursor.fetchone()
 	cursor.close()
