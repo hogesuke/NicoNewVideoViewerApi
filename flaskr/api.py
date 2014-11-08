@@ -82,10 +82,24 @@ def get_video(videos_id):
 def get_videos_list():
 	page = get_page_no(request.args.get('page'))
 	perpage = get_perpage_no(request.args.get('perpage'))
+	unwatch_only = get_bool(request.args.get('unwatch_only'), False)
 
 	if 'user_id' in session:
-		cursor = db_connector.cursor(dictionary = True)
-		cursor.execute('''
+		if unwatch_only:
+			cursor = db_connector.cursor(dictionary = True)
+			cursor.execute('''
+				select vi.*, cb.icon_url, if(ucp.video_id <=> NULL, 'false', 'true') watched
+				from videos vi
+				inner join contributors cb
+				on  vi.contributor_id = cb.id
+				left outer join users_completions ucp
+				on vi.id = ucp.video_id and ucp.user_id = {user_id}
+				where ucp.video_id is NULL
+				order by serial_no desc
+				limit {start}, {count}'''.format(user_id = session['user_id'], start = (page - 1) * perpage, count = perpage))
+		else:
+			cursor = db_connector.cursor(dictionary = True)
+			cursor.execute('''
 				select vi.*, cb.icon_url, if(ucp.video_id <=> NULL, 'false', 'true') watched
 				from videos vi
 				inner join contributors cb
@@ -94,6 +108,7 @@ def get_videos_list():
 				on vi.id = ucp.video_id and ucp.user_id = {user_id}
 				order by serial_no desc
 				limit {start}, {count}'''.format(user_id = session['user_id'], start = (page - 1) * perpage, count = perpage))
+
 	else:
 		cursor = db_connector.cursor(dictionary = True)
 		cursor.execute('''
@@ -135,23 +150,41 @@ def get_my_videos():
 
 	page = get_page_no(request.args.get('page'))
 	perpage = get_perpage_no(request.args.get('perpage'))
+	unwatch_only = get_bool(request.args.get('unwatch_only'), False)
 
 	# 複数人実況などでvideoが重複して取得される場合があるのでdistinctを付与
-	cursor = db_connector.cursor(dictionary = True)
-	cursor.execute('''
-		select distinct vi.*, cb.icon_url, if(ucp.video_id <=> NULL, 'false', 'true') watched
-		from videos vi
-		inner join videos_contributors vc
-		on vi.id = vc.video_id
-		inner join users_contributors uc
-		on vc.contributor_id = uc.contributor_id
-		inner join contributors cb
-		on  vi.contributor_id = cb.id
-		left outer join users_completions ucp
-		on vi.id = ucp.video_id and uc.user_id = ucp.user_id
-		where uc.user_id = {user_id}
-		order by vi.serial_no desc
-		limit {start}, {count}'''.format(user_id = session['user_id'], start = (page - 1) * perpage, count = perpage))
+	if unwatch_only:
+		cursor = db_connector.cursor(dictionary = True)
+		cursor.execute('''
+			select distinct vi.*, cb.icon_url, if(ucp.video_id <=> NULL, 'false', 'true') watched
+			from videos vi
+			inner join videos_contributors vc
+			on vi.id = vc.video_id
+			inner join users_contributors uc
+			on vc.contributor_id = uc.contributor_id
+			inner join contributors cb
+			on  vi.contributor_id = cb.id
+			left outer join users_completions ucp
+			on vi.id = ucp.video_id and uc.user_id = ucp.user_id
+			where uc.user_id = {user_id} and ucp.video_id is NULL
+			order by vi.serial_no desc
+			limit {start}, {count}'''.format(user_id = session['user_id'], start = (page - 1) * perpage, count = perpage))
+	else:
+		cursor = db_connector.cursor(dictionary = True)
+		cursor.execute('''
+			select distinct vi.*, cb.icon_url, if(ucp.video_id <=> NULL, 'false', 'true') watched
+			from videos vi
+			inner join videos_contributors vc
+			on vi.id = vc.video_id
+			inner join users_contributors uc
+			on vc.contributor_id = uc.contributor_id
+			inner join contributors cb
+			on  vi.contributor_id = cb.id
+			left outer join users_completions ucp
+			on vi.id = ucp.video_id and uc.user_id = ucp.user_id
+			where uc.user_id = {user_id}
+			order by vi.serial_no desc
+			limit {start}, {count}'''.format(user_id = session['user_id'], start = (page - 1) * perpage, count = perpage))
 
 	rows = cursor.fetchall()
 	cursor.close()
@@ -190,23 +223,41 @@ def get_my_videos_count():
 def get_contributor_videos(contributor_id):
 	page = get_page_no(request.args.get('page'))
 	perpage = get_perpage_no(request.args.get('perpage'))
+	unwatch_only = get_bool(request.args.get('unwatch_only'), False)
 
 	if 'user_id' in session:
-		cursor = db_connector.cursor(dictionary = True)
-		cursor.execute('''
-			select vi.*, cb.icon_url, if(ucp.video_id <=> NULL, 'false', 'true') watched
-			from videos vi
-			inner join videos_contributors vc
-			on vi.id = vc.video_id
-			inner join users_contributors uc
-			on vc.contributor_id = uc.contributor_id
-			inner join contributors cb
-			on  vi.contributor_id = cb.id
-			left outer join users_completions ucp
-			on vi.id = ucp.video_id and uc.user_id = ucp.user_id
-			where uc.user_id = {user_id} and vc.contributor_id = {contributor_id}
-			order by vi.serial_no desc
-			limit {start}, {count}'''.format(user_id = session['user_id'], contributor_id = contributor_id, start = (page - 1) * perpage, count = perpage))
+		if unwatch_only:
+			cursor = db_connector.cursor(dictionary = True)
+			cursor.execute('''
+				select vi.*, cb.icon_url, if(ucp.video_id <=> NULL, 'false', 'true') watched
+				from videos vi
+				inner join videos_contributors vc
+				on vi.id = vc.video_id
+				inner join users_contributors uc
+				on vc.contributor_id = uc.contributor_id
+				inner join contributors cb
+				on  vi.contributor_id = cb.id
+				left outer join users_completions ucp
+				on vi.id = ucp.video_id and uc.user_id = ucp.user_id
+				where uc.user_id = {user_id} and vc.contributor_id = {contributor_id} and ucp.video_id is NULL
+				order by vi.serial_no desc
+				limit {start}, {count}'''.format(user_id = session['user_id'], contributor_id = contributor_id, start = (page - 1) * perpage, count = perpage))
+		else:
+			cursor = db_connector.cursor(dictionary = True)
+			cursor.execute('''
+				select vi.*, cb.icon_url, if(ucp.video_id <=> NULL, 'false', 'true') watched
+				from videos vi
+				inner join videos_contributors vc
+				on vi.id = vc.video_id
+				inner join users_contributors uc
+				on vc.contributor_id = uc.contributor_id
+				inner join contributors cb
+				on  vi.contributor_id = cb.id
+				left outer join users_completions ucp
+				on vi.id = ucp.video_id and uc.user_id = ucp.user_id
+				where uc.user_id = {user_id} and vc.contributor_id = {contributor_id}
+				order by vi.serial_no desc
+				limit {start}, {count}'''.format(user_id = session['user_id'], contributor_id = contributor_id, start = (page - 1) * perpage, count = perpage))
 	else:
 		cursor = db_connector.cursor(dictionary = True)
 		cursor.execute('''
@@ -472,6 +523,23 @@ def get_perpage_no(param_perpage):
 		perpage = int(param_perpage)
 
 	return perpage
+
+"""
+リクエストパラメータから真偽値を取得する
+
+@type arg: str
+@param arg: リクエストパラメータで指定された値
+@type default: bool
+@param default: 指定された値が有効でない場合にデフォルトとする真偽値
+@return リクエストパラメータに有効な真偽値が設定されている場合は、
+        リクエストパラメータの真偽値を返却。
+        有効でない値の場合は、defaultを返却。
+"""
+def get_bool(param, default):
+	if param is not None and (param == 'true' or param == 'false') :
+		return True if param == 'true' else False
+
+	return default
 
 """
 レコードの存在チェック
