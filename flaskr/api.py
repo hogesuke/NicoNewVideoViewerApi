@@ -18,7 +18,7 @@ def get_authorize_status():
 
 	return response
 
-@app.route('/authorize/', methods=['GET'])
+@app.route('/authorize/', methods=['POST'])
 def get_authorize_url():
 	request_token, request_token_secret = twitter.get_request_token()
 	authorize_url = twitter.get_authorize_url(request_token)
@@ -28,6 +28,16 @@ def get_authorize_url():
 
 	response = make_response()
 	response.data = json.dumps({'authorize_url': authorize_url}, default=default)
+	response.status_code = 200
+	return response
+
+@app.route('/logout/', methods=['POST'])
+def logout():
+	session.pop('user_id', None)
+	session.pop('request_token', None)
+	session.pop('request_token_secret', None)
+
+	response = make_response()
 	response.status_code = 200
 	return response
 
