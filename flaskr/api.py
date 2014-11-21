@@ -31,13 +31,15 @@ def get_authorize_url():
 	response.status_code = 200
 	return response
 
-@app.route('/logout/', methods=['GET'])
+@app.route('/logout/', methods=['POST'])
 def logout():
 	session.pop('user_id', None)
 	session.pop('request_token', None)
 	session.pop('request_token_secret', None)
 
-	return redirect('/')
+	response = make_response()
+	response.status_code = 200
+	return response
 
 @app.route('/callback/twitter/', methods=['GET'])
 def callback_twitter():
