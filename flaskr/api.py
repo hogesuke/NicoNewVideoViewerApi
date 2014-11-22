@@ -67,6 +67,7 @@ def callback_twitter():
 		where provider_id = {provider_id}'''.format(provider_id = user_info['id']))
 
 	row = cursor.fetchone()
+	db_connector.commit()
 	cursor.close()
 
 	session['user_id'] = row['id']
@@ -91,6 +92,7 @@ def get_user():
 		where id = {user_id}'''.format(user_id = session['user_id']))
 
 	row = cursor.fetchone()
+	db_connector.commit()
 	cursor.close()
 
 	response = make_response()
@@ -156,6 +158,7 @@ def get_videos_list():
 			limit {start}, {count}'''.format(start = (page - 1) * perpage, count = perpage))
 
 	rows = cursor.fetchall()
+	db_connector.commit()
 	cursor.close()
 
 	response = make_response()
@@ -179,6 +182,7 @@ def get_videos_count():
 		cursor.execute('select count(id) count from videos')
 
 	cnt_row = cursor.fetchone()
+	db_connector.commit()
 	cursor.close()
 
 	response = make_response()
@@ -232,6 +236,7 @@ def get_my_videos():
 			limit {start}, {count}'''.format(user_id = session['user_id'], start = (page - 1) * perpage, count = perpage))
 
 	rows = cursor.fetchall()
+	db_connector.commit()
 	cursor.close()
 
 	response = make_response()
@@ -271,6 +276,7 @@ def get_my_videos_count():
 			where uc.user_id = {user_id}'''.format(user_id = session['user_id']))
 
 	cnt_row = cursor.fetchone()
+	db_connector.commit()
 	cursor.close()
 
 	response = make_response()
@@ -327,6 +333,7 @@ def get_contributor_videos(contributor_id):
 			limit {start}, {count}'''.format(contributor_id = contributor_id, start = (page - 1) * perpage, count = perpage))
 
 	rows = cursor.fetchall()
+	db_connector.commit()
 	cursor.close()
 
 	response = make_response()
@@ -357,6 +364,7 @@ def get_contributor_videos_count(contributor_id):
 			where vc.contributor_id = {contributor_id}'''.format(contributor_id=contributor_id))
 
 	cnt_row = cursor.fetchone()
+	db_connector.commit()
 	cursor.close()
 
 	response = make_response()
@@ -385,6 +393,7 @@ def get_my_contributor():
 		limit {start}, {count}'''.format(user_id = session['user_id'], start = (page - 1) * perpage, count = perpage))
 
 	rows = cursor.fetchall()
+	db_connector.commit()
 	cursor.close()
 
 	response = make_response()
@@ -408,6 +417,7 @@ def get_my_contributor_count():
 		where uc.user_id = {user_id}'''.format(user_id = session['user_id']))
 
 	row = cursor.fetchone()
+	db_connector.commit()
 	cursor.close()
 
 	response = make_response()
@@ -460,6 +470,7 @@ def post_my_contributor():
 		limit 0, 20'''.format(user_id = session['user_id']))
 
 	rows = cursor.fetchall()
+	db_connector.commit()
 	cursor.close()
 
 	response = make_response()
@@ -507,6 +518,7 @@ def delete_my_contributor():
 		limit {start}, {count}'''.format(user_id = session['user_id'], start = (page - 1) * perpage, count = perpage))
 
 	rows = cursor.fetchall()
+	db_connector.commit()
 	cursor.close()
 
 	response = make_response()
@@ -541,6 +553,7 @@ def post_completion(video_id):
 		exec_sql('insert into completions (video_id) values ({0})'.format(video_id), False)
 
 	exec_sql('insert into users_completions (user_id, video_id) values ({user_id}, {video_id})'.format(user_id = session['user_id'], video_id = video_id), True)
+	db_connector.commit()
 
 	response = jsonify({'isWatched': 'true'})
 	response.status_code = 201
@@ -621,6 +634,7 @@ def is_exists_record(target_tbl, where):
 	cnt_cursor.execute('select count(*) as count from {table} where {where}'.format(table=target_tbl, where=where))
 
 	cnt_row = cnt_cursor.fetchone()
+	db_connector.commit()
 	cnt_cursor.close()
 	if cnt_row['count'] > 0:
 		return True
