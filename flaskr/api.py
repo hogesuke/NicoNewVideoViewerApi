@@ -133,7 +133,7 @@ def get_videos_list():
 				left outer join users_completions ucp
 				on vi.id = ucp.video_id and ucp.user_id = {user_id}
 				where ucp.video_id is NULL
-				order by post_datetime desc and serial_no desc
+				order by post_datetime desc, serial_no desc
 				limit {start}, {count}'''.format(user_id = session['user_id'], start = (page - 1) * perpage, count = perpage))
 		else:
 			cursor = db_connector.cursor(dictionary = True)
@@ -144,7 +144,7 @@ def get_videos_list():
 				on  vi.contributor_id = cb.id
 				left outer join users_completions ucp
 				on vi.id = ucp.video_id and ucp.user_id = {user_id}
-				order by post_datetime desc and serial_no desc
+				order by post_datetime desc, serial_no desc
 				limit {start}, {count}'''.format(user_id = session['user_id'], start = (page - 1) * perpage, count = perpage))
 
 	else:
@@ -154,7 +154,7 @@ def get_videos_list():
 			from videos vi
 			inner join contributors cb
 			on  vi.contributor_id = cb.id
-			order by post_datetime desc and serial_no desc
+			order by post_datetime desc, serial_no desc
 			limit {start}, {count}'''.format(start = (page - 1) * perpage, count = perpage))
 
 	rows = cursor.fetchall()
@@ -216,7 +216,7 @@ def get_my_videos():
 			left outer join users_completions ucp
 			on vi.id = ucp.video_id and uc.user_id = ucp.user_id
 			where uc.user_id = {user_id} and ucp.video_id is NULL
-			order by vi.post_datetime desc and vi.serial_no desc
+			order by vi.post_datetime desc, vi.serial_no desc
 			limit {start}, {count}'''.format(user_id = session['user_id'], start = (page - 1) * perpage, count = perpage))
 	else:
 		cursor = db_connector.cursor(dictionary = True)
@@ -232,7 +232,7 @@ def get_my_videos():
 			left outer join users_completions ucp
 			on vi.id = ucp.video_id and uc.user_id = ucp.user_id
 			where uc.user_id = {user_id}
-			order by vi.post_datetime desc and vi.serial_no desc
+			order by vi.post_datetime desc, vi.serial_no desc
 			limit {start}, {count}'''.format(user_id = session['user_id'], start = (page - 1) * perpage, count = perpage))
 
 	rows = cursor.fetchall()
@@ -303,7 +303,7 @@ def get_contributor_videos(contributor_id):
 				left outer join users_completions ucp
 				on vi.id = ucp.video_id and ucp.user_id = {user_id}
 				where vc.contributor_id = {contributor_id} and ucp.video_id is NULL
-				order by vi.post_datetime desc and vi.serial_no desc
+				order by vi.post_datetime desc, vi.serial_no desc
 				limit {start}, {count}'''.format(user_id = session['user_id'], contributor_id = contributor_id, start = (page - 1) * perpage, count = perpage))
 		else:
 			cursor = db_connector.cursor(dictionary = True)
@@ -317,7 +317,7 @@ def get_contributor_videos(contributor_id):
 				left outer join users_completions ucp
 				on vi.id = ucp.video_id and ucp.user_id = {user_id}
 				where vc.contributor_id = {contributor_id}
-				order by vi.post_datetime desc and vi.serial_no desc
+				order by vi.post_datetime desc, vi.serial_no desc
 				limit {start}, {count}'''.format(user_id = session['user_id'], contributor_id = contributor_id, start = (page - 1) * perpage, count = perpage))
 	else:
 		cursor = db_connector.cursor(dictionary = True)
@@ -329,7 +329,7 @@ def get_contributor_videos(contributor_id):
 			inner join contributors cb
 			on  vi.contributor_id = cb.id
 			where vc.contributor_id = {contributor_id}
-			order by vi.post_datetime desc and vi.serial_no desc
+			order by vi.post_datetime desc, vi.serial_no desc
 			limit {start}, {count}'''.format(contributor_id = contributor_id, start = (page - 1) * perpage, count = perpage))
 
 	rows = cursor.fetchall()
