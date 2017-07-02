@@ -265,22 +265,31 @@ def get_my_videos_count():
 		cursor.execute('''
 			select count(vi.id) count
 			from videos vi
-			inner join videos_contributors vc
-			on vi.id = vc.video_id
-			inner join users_contributors uc
-			on vc.contributor_id = uc.contributor_id
-			left outer join users_completions ucp
-			on vi.id = ucp.video_id and ucp.user_id = uc.user_id
-			where uc.user_id = {user_id} and ucp.video_id is NULL'''.format(user_id = session['user_id']))
+			inner join (
+			    select * from users_contributors uc
+			    where uc.user_id = {user_id}
+			) my_contributors
+			on vi.contributor_id = my_contributors.contributor_id
+			left outer join (
+			    select * from users_completions ucp
+			    where ucp.user_id = {user_id}
+			) my_completions
+			on vi.id = my_completions.video_id
+			where my_completions.video_id is NULL'''.format(user_id = session['user_id']))
 	else:
 		cursor.execute('''
 			select count(vi.id) count
 			from videos vi
-			inner join videos_contributors vc
-			on vi.id = vc.video_id
-			inner join users_contributors uc
-			on vc.contributor_id = uc.contributor_id
-			where uc.user_id = {user_id}'''.format(user_id = session['user_id']))
+			inner join (
+			    select * from users_contributors uc
+			    where uc.user_id = {user_id}
+			) my_contributors
+			on vi.contributor_id = my_contributors.contributor_id
+			left outer join (
+			    select * from users_completions ucp
+			    where ucp.user_id = {user_id}
+			) my_completions
+			on vi.id = my_completions.video_id'''.format(user_id = session['user_id']))
 
 	cnt_row = cursor.fetchone()
 	db_connector.commit()
