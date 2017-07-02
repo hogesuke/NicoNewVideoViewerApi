@@ -205,33 +205,40 @@ def get_my_videos():
 	if unwatch_only:
 		cursor = db_connector.cursor(dictionary = True)
 		cursor.execute('''
-			select distinct vi.*, cb.icon_url, if(ucp.video_id <=> NULL, 'false', 'true') watched
+			select distinct vi.*, cb.icon_url, if(my_completions.video_id <=> NULL, 'false', 'true') watched
 			from videos vi
-			inner join videos_contributors vc
-			on vi.id = vc.video_id
-			inner join users_contributors uc
-			on vc.contributor_id = uc.contributor_id
+			inner join (
+			    select * from users_contributors uc
+			    where uc.user_id = {user_id}
+			) my_contributors
+			on vi.contributor_id = my_contributors.contributor_id
 			inner join contributors cb
-			on  vi.contributor_id = cb.id
-			left outer join users_completions ucp
-			on vi.id = ucp.video_id and uc.user_id = ucp.user_id
-			where uc.user_id = {user_id} and ucp.video_id is NULL
+			on vi.contributor_id = cb.id
+			left outer join (
+			    select video_id from users_completions ucp
+			    where ucp.user_id = {user_id}
+			) my_completions
+			on vi.id = my_completions.video_id
+			where my_completions.video_id is NULL
 			order by vi.post_datetime desc, vi.serial_no desc
 			limit {start}, {count}'''.format(user_id = session['user_id'], start = (page - 1) * perpage, count = perpage))
 	else:
 		cursor = db_connector.cursor(dictionary = True)
 		cursor.execute('''
-			select distinct vi.*, cb.icon_url, if(ucp.video_id <=> NULL, 'false', 'true') watched
+			select distinct vi.*, cb.icon_url, if(my_completions.video_id <=> NULL, 'false', 'true') watched
 			from videos vi
-			inner join videos_contributors vc
-			on vi.id = vc.video_id
-			inner join users_contributors uc
-			on vc.contributor_id = uc.contributor_id
+			inner join (
+			    select * from users_contributors uc
+			    where uc.user_id = {user_id}
+			) my_contributors
+			on vi.contributor_id = my_contributors.contributor_id
 			inner join contributors cb
-			on  vi.contributor_id = cb.id
-			left outer join users_completions ucp
-			on vi.id = ucp.video_id and uc.user_id = ucp.user_id
-			where uc.user_id = {user_id}
+			on vi.contributor_id = cb.id
+			left outer join (
+			    select video_id from users_completions ucp
+			    where ucp.user_id = {user_id}
+			) my_completions
+			on vi.id = my_completions.video_id
 			order by vi.post_datetime desc, vi.serial_no desc
 			limit {start}, {count}'''.format(user_id = session['user_id'], start = (page - 1) * perpage, count = perpage))
 
