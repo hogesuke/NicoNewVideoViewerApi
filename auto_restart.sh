@@ -7,6 +7,5 @@ if [ "$PID" != "" ]; then
 fi
 
 cd /home/hogesuke/nicotune/NicoNewVideoViewerApi
-source `which virtualenvwrapper.sh`
-workon nicotune
+
 uwsgi uwsgi.ini &
